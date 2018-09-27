@@ -1,29 +1,10 @@
-"""digger.py [-s DIR_PATH] [-a BOOK_PATH] [-u]
-
-DIR_PATH - путь до папки с каталогом книг в формате fb2, или fb2.zip, или fb2.gz
-
-BOOK_PATH - путь до одной книги (форматы те же)
-
-Утилита должна пройтись по всем предложенным книгам и заполнить в БД информацию об имеющимся в наличии книгам.
-
-В случае, если информация о какой-то добавляемой в библиотеке книге уже есть, необходимо действовать в зависимости от флага -u
-
-                если флаг -u задан, то мы обновляем информацию о книге в библиотеке
-
-                если флага -u нет, то информация не обновляется
-
-Каждая "уникальная книга" (сочетание автор + название + год) гарантированно имеется в единственном экземпляре
-
-Не гарантируется, что имя + название + год книги будут указаны в fb2 тэгах (но название точно будет)
-
-* Доп. замечание: база книжек может быть очень ОЧЕНЬ большая. Лучше бы, чтобы библиотечная система работала по-быстрее"""
-
 import os
 import zipfile
-from lxml import etree
 from io import BytesIO
 
 import click
+from lxml import etree
+
 import db
 
 
@@ -49,7 +30,7 @@ def get_tree_from_fb2(path):
                 object_xml = BytesIO(_zip.read(file_name[0]))
             else:
                 print("Many or none files in zip archive")
-    tree = etree.parse(object_xml)
+    tree = etree.parse(object_xml)  # TODO try to use xml SAX
     return tree
 
 
@@ -67,27 +48,27 @@ def get_book_title(tag_element, namespace: str) -> str:
         try:
             title = book_title[0].text.strip()
         except (TypeError, AttributeError):
-            title = book_title[0].text
+            title = None
+            print("Title didn't find")
         return title
 
 
-def get_book_authors(tag_element, namespace: str) -> list:
+def get_book_authors(tag_element, namespace: str) -> set:
     tag = "author"
-    authors = []
+    authors = set()
 
     all_authors_tag = list(tag_element.iter(f"{namespace}{tag}"))
     if not all_authors_tag:
         return authors
 
     for author in all_authors_tag:
-        full_name = {"first_name": None, "middle_name": None, "last_name": None}
-        for name_tag in author.getchildren():
-            if name_tag.tag == f"{namespace}first-name":
-                full_name["first_name"] = name_tag.text
-            elif name_tag.tag == f"{namespace}last-name":
-                full_name["last_name"] = name_tag.text
-            elif name_tag.tag == f"{namespace}middle-name":
-                full_name["middle_name"] = name_tag.text
+        full_name = {"first-name": None, "middle-name": None, "last-name": None}
+        for tag_object in author.getchildren():
+            for tag_name in full_name:
+                text = tag_object.text
+                if text and tag_object.tag == f"{namespace}{tag_name}":
+                    full_name[tag_name] = text.strip()
+
         try:
             name_in_tag = author.text.strip()
         except AttributeError:
@@ -100,8 +81,8 @@ def get_book_authors(tag_element, namespace: str) -> list:
             else:
                 continue
         else:
-            str_name = " ".join(name_parts)
-        authors.append(str_name)
+            str_name = " ".join(name_parts).title()
+        authors.add(str_name)
     return authors
 
 
@@ -130,18 +111,21 @@ def get_book_info(tree) -> dict:
 @click.option("--update", "-u", type=bool, default=False)
 @click.argument("path", default="./books/", type=str)
 def enter_point(path, update):
-    # path = "/home/dany/test_books/"
-    books_info = []
+    path = "/home/dany/test_books/"
     if os.path.isdir(path):
         for path in fb2_path_generator(path):
             tree = get_tree_from_fb2(path)
-            books_info.append(get_book_info(tree))
+            info = get_book_info(tree)
+            db.add_book(info["book_title"], info["year"], info["authors"])
     elif os.path.isfile(path):
-        books_info.append(get_tree_from_fb2(path))
-
-    for info in books_info:
+        info = get_book_info(get_tree_from_fb2(path))
         db.add_book(info["book_title"], info["year"], info["authors"])
-        print(info)
+
+    quantity_books, quantity_authors = db.get_statistic()
+    print(
+        f"{quantity_books} books and"
+        f"{quantity_authors} authors have added in database"
+    )
 
 
 if __name__ == "__main__":
