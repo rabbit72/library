@@ -1,13 +1,16 @@
-"""seeker.py [-a AUTHOR] [-n BOOK_NAME] [-y YEAR] [-s]
+import click
 
-AUTHOR - имя автора
+import db
 
-BOOK_NAME - название книги
 
-YEAR - год издания
+@click.command()
+@click.option("--author", "-a", type=str, help="Name author")
+@click.option("--name", "-n", type=str, help="Book title")
+@click.option("--year", "-y", type=int, help="Year when book was written")
+@click.option("--simple", "-s", is_flag=True, default=False, help="Year when book was written")
+def enter_point(author, name, year, simple):
+    pass
 
-Ищет книгу по автору, названию и году.
 
-Результат поиска должен писаться в stdout
-
-Если указан флаг -s то в stdout стоит писать только уникальный идентификатор книги (например, её номер)"""
+if __name__ == "__main__":
+    enter_point()
