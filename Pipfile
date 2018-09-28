@@ -4,7 +4,6 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-sqlalchemy = "*"
 click = "*"
 "psycopg2-binary" = "*"
 lxml = "*"
