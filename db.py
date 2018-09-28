@@ -1,115 +1,121 @@
-import sqlalchemy
-from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import sessionmaker
+import psycopg2
+from psycopg2 import sql
 
-import models
-
-# dialect+driver://username:password@host:port/database
-db = sqlalchemy.create_engine("postgresql://postgres:pass@localhost/")
-
-Session = sessionmaker(db)
-SESSION = Session()
-
-try:
-    models.base.metadata.create_all(db)
-except OperationalError:
-    exit("Check connection to DB")
+CONN = psycopg2.connect(user="postgres", password="pass", host="localhost", port=5432)
+CURSOR = CONN.cursor()
 
 
-def get_statistic():
-    authors = SESSION.query(models.Author)
-    books = SESSION.query(models.Book)
-    return len(tuple(books)), len(tuple(authors))
+def __send_request(sql_request, variables=None):
+    CURSOR.execute(sql.SQL(sql_request), variables)
+    CONN.commit()
 
 
-def add_book(title: str, year: int = None, authors: set = frozenset(), update=False):
-    book = get_book(title, year, authors)
-    if book:
-        return
-    SESSION.add(models.Book(title, year))
-    SESSION.commit()
-    _id = get_book(title, year, set()).id
-    __create_links_book_author(_id, __get_authors_id(authors, add_new_authors=True))
+def __fetch_reply(sql_request, variables=None):
+    CURSOR.execute(sql.SQL(sql_request), variables)
+    return CURSOR.fetchall()
 
 
 def add_author(name: str):
-    SESSION.add(models.Author(name))
-    SESSION.commit()
+    sql_request = "INSERT INTO author(name) VALUES (%s);"
+    __send_request(sql_request, (name,))
+    return get_author(name, only_id=True)
 
 
-def get_author(name: str):
-    try:
-        author = SESSION.query(models.Author).filter_by(name=name)[0]
-    except IndexError:
-        author = None
-    return author
-
-
-def get_book(title: str, year: int, authors: set):
-    books = list(SESSION.query(models.Book).filter_by(title=title, year=year))
-    for book in books:
-        if __get_book_author_names(book.id) == authors:
-            return book
-    return None
-
-
-def delete_book_by_id(_id: int) -> bool:
-    try:
-        book = SESSION.query(models.Book).filter_by(id=_id).delete()
-        SESSION.commit()
-    except:
-        SESSION.rollback()
-        book = False
-    return bool(book)
-
-
-def delete_all_data():
-    try:
-        num_deleted_books = SESSION.query(models.Book).delete()
-        num_deleted_authors = SESSION.query(models.Author).delete()
-        SESSION.commit()
-    except:
-        SESSION.rollback()
-        num_deleted_books, num_deleted_authors = 0, 0
-    return {
-        "book": num_deleted_books,
-        "author": num_deleted_authors,
-    }
+def get_statistic():
+    all_authors = __fetch_reply("SELECT count(*) FROM author;")[0][0]
+    all_books = __fetch_reply("SELECT count(*) FROM book;")[0][0]
+    return all_books, all_authors
 
 
 def __get_book_author_names(_id: int) -> set:
-    request = SESSION.execute(
-        """
+    sql_request = """
         SELECT name FROM author
-                   INNER JOIN books_authors ON books_authors.author_id = author.id
-                   INNER JOIN book ON book.id = books_authors.book_id
-            WHERE book.id = :id;""",
-        {"id": _id},
-    )
-    authors_names = request.fetchall()
+            INNER JOIN books_authors ON books_authors.author_id = author.id
+            INNER JOIN book ON book.id = books_authors.book_id
+        WHERE book.id = %s;"""
+    variables = (_id,)
+    authors_names = __fetch_reply(sql_request, variables)
     authors_names = {name[0] for name in authors_names}
     if authors_names:
         return authors_names
     return set()
 
 
+def get_book(title: str, year: int, authors: set, only_id=False):
+    sql_request = """
+        SELECT id, title, year, last_update FROM book
+        WHERE title = %s and year = %s
+        ORDER BY last_update DESC;"""
+
+    if year is None:
+        sql_request = """
+                SELECT id, title, year, last_update FROM book
+                WHERE title = %s and year is %s
+                ORDER BY last_update DESC;"""
+    books = __fetch_reply(sql_request, (title, year,))
+    for book in books:
+        book_id = book[0]
+        if __get_book_author_names(book_id) == authors:
+            if only_id:
+                return book_id
+            return book
+    return None
+
+
 def __create_links_book_author(book_id, authors_id: dict):
     for author_id in authors_id.values():
         if not authors_id:
             continue
-        SESSION.add(models.BooksAuthors(book_id, author_id))
-    SESSION.commit()
+        create_link = """
+            INSERT INTO books_authors(book_id, author_id) VALUES (%s, %s)"""
+        __send_request(create_link, (book_id, author_id,))
+
+
+def add_book(title: str, year: int = None, authors: set = frozenset(), update=False):
+    book = get_book(title, year, authors)
+    if book:
+        return
+    create_new_book = "INSERT INTO book(title, year) VALUES (%s, %s);"
+    __send_request(create_new_book, (title, year,))
+    new_book_id = get_book(title, year, set(), only_id=True)
+
+    __create_links_book_author(
+        new_book_id,
+        __get_authors_id(authors, add_new_authors=True)
+    )
+
+
+def get_author(name: str, only_id=False):
+    sql_request = "SELECT id, name, last_update FROM author WHERE name = %s;"
+    authors = __fetch_reply(sql_request, (name,))
+    if authors:
+        author = authors[0]
+        if only_id:
+            return author[0]
+        return author
+    return None
+
+
+def delete_book_by_id(_id: int) -> bool:
+    book_id = __fetch_reply("SELECT id FROM book WHERE id = %s", (_id,))
+    if not book_id:
+        return False
+    __send_request("DELETE FROM book WHERE id = %s", (_id,))
+    return True
+
+
+def delete_all_data():
+    books_before, authors_after = get_statistic()
+    __send_request("DELETE FROM book;")
+    __send_request("DELETE FROM author;")
+    return {"book": books_before, "author": authors_after}
 
 
 def __get_authors_id(author_names: set, add_new_authors=False) -> dict:
     authors_id = dict()
     for name in author_names:
-        author = get_author(name)
-        if not author:
-            if add_new_authors:
-                add_author(name)
-                author = get_author(name)
-            else:
-                author = None
-        authors_id[name] = author.id
+        author_id = get_author(name, only_id=True)
+        if not author_id and add_new_authors:
+                author_id = add_author(name)
+        authors_id[name] = author_id
     return authors_id
