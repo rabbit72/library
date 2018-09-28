@@ -1,4 +1,5 @@
 import os
+import sys
 import zipfile
 from io import BytesIO
 
@@ -29,13 +30,16 @@ def get_tree_from_fb2(path):
             if len(file_name) == 1:
                 object_xml = BytesIO(_zip.read(file_name[0]))
             else:
-                print("Many or none files in zip archive")
+                sys.stderr.write("Many or none files in zip archive")
     tree = etree.parse(object_xml)  # TODO try to use xml SAX
     return tree
 
 
-def fb2_path_generator(path_to_dir: str) -> str:
-    for _root, _dir, file_names in os.walk(path_to_dir):
+def fb2_path_generator(path_to_file_or_dir: str) -> str:
+    path = path_to_file_or_dir
+    if os.path.isfile(path) and is_correct_ext(path):
+        yield os.path.abspath(path)
+    for _root, _dir, file_names in os.walk(path):
         for file_name in file_names:
             if is_correct_ext(file_name):
                 yield os.path.abspath(os.path.join(_root, file_name))
@@ -44,13 +48,18 @@ def fb2_path_generator(path_to_dir: str) -> str:
 def get_book_title(tag_element, namespace: str) -> str:
     tag = "book-title"
     book_title = [title for title in tag_element.iter(f"{namespace}{tag}")]
-    if len(book_title) == 1:
-        try:
-            title = book_title[0].text.strip()
-        except (TypeError, AttributeError):
-            title = None
-            print("Title didn't find")
-        return title
+
+    # Bad situation
+    if len(book_title) != 1:
+        sys.stderr.write("Book has 0 or more 1 title\n")
+        return
+
+    try:
+        title = book_title[0].text.strip()
+    except (TypeError, AttributeError):
+        sys.stderr.write("Book has no title\n")
+        title = ""
+    return title
 
 
 def get_book_authors(tag_element, namespace: str) -> set:
@@ -89,12 +98,17 @@ def get_book_authors(tag_element, namespace: str) -> set:
 def get_created_year(tag_element, namespace: str) -> int:
     tag = "date"
     year = [year for year in tag_element.iter(f"{namespace}{tag}")]
-    if len(year) == 1:
-        try:
-            created_year = int(year[0].text.strip())
-        except (ValueError, AttributeError):
-            created_year = None
-        return created_year
+
+    # Bad situation
+    if len(year) > 1:
+        sys.stderr.write("Book has more than 1 year\n")
+        return
+
+    try:
+        created_year = int(year[0].text.strip())
+    except (ValueError, AttributeError, IndexError):
+        created_year = None
+    return created_year
 
 
 def get_book_info(tree) -> dict:
@@ -112,20 +126,30 @@ def get_book_info(tree) -> dict:
 @click.argument("path", default="./books/", type=str)
 def enter_point(path, update):
     path = "/home/dany/test_books/"
-    if os.path.isdir(path):
-        for path in fb2_path_generator(path):
+    # path = "/home/dany/Downloads/fb2.Flibusta.Net"
+    error_files = 0
+
+    for path in fb2_path_generator(path):
+        # for wrong fb2 files
+        try:
             tree = get_tree_from_fb2(path)
-            info = get_book_info(tree)
-            db.add_book(info["book_title"], info["year"], info["authors"])
-    elif os.path.isfile(path):
-        info = get_book_info(get_tree_from_fb2(path))
+        except etree.XMLSyntaxError:
+            error_files += 1
+            continue
+
+        info = get_book_info(tree)
+
+        #  title is mandatory
+        if not info["book_title"]:
+            continue
         db.add_book(info["book_title"], info["year"], info["authors"])
 
     quantity_books, quantity_authors = db.get_statistic()
     print(
-        f"{quantity_books} books and"
+        f"{quantity_books} books and "
         f"{quantity_authors} authors have added in database"
     )
+    print(f"Wrong files {error_files}")
 
 
 if __name__ == "__main__":
