@@ -122,10 +122,17 @@ def get_book_info(tree) -> dict:
 
 
 @click.command()
-@click.option("--update", "-u", type=bool, default=False)
-@click.argument("path", default="./books/", type=str)
+@click.option(
+    "--update",
+    "-u",
+    is_flag=True,
+    default=False,
+    help="This flag updates your existing books in database",
+)
+@click.argument("path", type=click.Path(exists=True))
 def enter_point(path, update):
-    path = "/home/dany/test_books/"
+    books_before, authors_before = db.get_statistic()
+    # path = "/home/dany/test_books/"
     # path = "/home/dany/Downloads/fb2.Flibusta.Net"
     error_files = 0
 
@@ -142,14 +149,21 @@ def enter_point(path, update):
         #  title is mandatory
         if not info["book_title"]:
             continue
-        db.add_book(info["book_title"], info["year"], info["authors"])
+        db.add_book(
+            info["book_title"],
+            info["year"],
+            info["authors"],
+            update=update,
+        )
 
-    quantity_books, quantity_authors = db.get_statistic()
+    books_after, authors_after = db.get_statistic()
+    # print information after work
     print(
-        f"{quantity_books} books and "
-        f"{quantity_authors} authors have added in database"
+        f"{books_after - books_before} books and "
+        f"{authors_after - authors_before} authors have added in database"
     )
-    print(f"Wrong files {error_files}")
+    if error_files > 0:
+        sys.stderr.write(f"Cannot parse {error_files} files")
 
 
 if __name__ == "__main__":
