@@ -18,12 +18,9 @@ def is_correct_ext(path: str) -> bool:
     return False
 
 
-def get_bytes_from_fb2(path: str) -> BytesIO:
-    bytes_fb2 = None
-    if path.endswith(".fb2"):
-        with open(path, "rb") as fb2:
-            bytes_fb2 = BytesIO(fb2.read())
-    elif path.endswith(".fb2.zip"):
+def get_object_for_parser(path: str):
+    bytes_fb2 = path
+    if path.endswith(".fb2.zip"):
         with zipfile.ZipFile(path) as _zip:
             file_name = _zip.namelist()
             if len(file_name) == 1:
@@ -42,8 +39,8 @@ def get_title_info_from_fb2(path):
     :return: lxml.etree._Element title-info
     """
     title_info_tag = "{http://www.gribuser.ru/xml/fictionbook/2.0}title-info"
-    bytes_xml = get_bytes_from_fb2(path)
-    context = etree.iterparse(bytes_xml, events=("end",), tag=title_info_tag)
+    object_fb2 = get_object_for_parser(path)
+    context = etree.iterparse(object_fb2, events=("end",), tag=title_info_tag)
     _, title_info = next(iter(context))
     return title_info
 
@@ -143,7 +140,7 @@ def get_book_info(title_info) -> dict:
 @click.argument("path", type=click.Path(exists=True))
 def enter_point(path, update):
     books_before, authors_before = db.get_statistic()
-    # path = "./books/177718.fb2"
+    # path = "./books/"
     # path = "/home/dany/test_books/"
     # path = "/home/dany/Downloads/fb2.Flibusta.Net"
     error_files = 0
