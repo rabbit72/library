@@ -1,6 +1,7 @@
 import os
 import sys
 import zipfile
+import gzip
 from io import BytesIO
 
 import click
@@ -17,22 +18,33 @@ def is_correct_ext(path: str) -> bool:
     return False
 
 
-def get_tree_from_fb2(path):
-    """
-    :param path: path to file (fb2, fb2.gz, fb2.zip)
-    :return: lxml.etree.ElementTree()
-    """
-
-    object_xml = path
-    if path.endswith(".fb2.zip"):
+def get_bytes_from_fb2(path: str) -> BytesIO:
+    if path.endswith(".fb2"):
+        with open(path, "rb") as fb2:
+            bytes_fb2 = BytesIO(fb2.read())
+    elif path.endswith(".fb2.zip"):
         with zipfile.ZipFile(path) as _zip:
             file_name = _zip.namelist()
             if len(file_name) == 1:
-                object_xml = BytesIO(_zip.read(file_name[0]))
+                bytes_fb2 = BytesIO(_zip.read(file_name[0]))
             else:
                 sys.stderr.write("Many or none files in zip archive")
-    tree = etree.parse(object_xml)  # TODO try to use xml SAX
-    return tree
+    elif path.endswith(".fb2.gz"):
+        with gzip.open(path) as _gzip:
+            bytes_fb2 = BytesIO(_gzip.read())
+    return bytes_fb2
+
+
+def get_title_info_from_fb2(path):
+    """
+    :param path: path to file (fb2, fb2.gz, fb2.zip)
+    :return: lxml.etree._Element title-info
+    """
+    title_info_tag = "{http://www.gribuser.ru/xml/fictionbook/2.0}title-info"
+    bytes_xml = get_bytes_from_fb2(path)
+    context = etree.iterparse(bytes_xml, events=("end",), tag=title_info_tag)
+    _, title_info = next(iter(context))
+    return title_info
 
 
 def fb2_path_generator(path_to_file_or_dir: str) -> str:
@@ -111,10 +123,8 @@ def get_created_year(tag_element, namespace: str) -> int:
     return created_year
 
 
-def get_book_info(tree) -> dict:
-    tag = "title-info"
+def get_book_info(title_info) -> dict:
     fb2_namespace = "{http://www.gribuser.ru/xml/fictionbook/2.0}"
-    title_info = [title for title in tree.iter(f"{fb2_namespace}{tag}")][0]
     book_title = get_book_title(title_info, fb2_namespace)
     authors = get_book_authors(title_info, fb2_namespace)
     year = get_created_year(title_info, fb2_namespace)
@@ -132,6 +142,7 @@ def get_book_info(tree) -> dict:
 @click.argument("path", type=click.Path(exists=True))
 def enter_point(path, update):
     books_before, authors_before = db.get_statistic()
+    # path = "./books/177718.fb2"
     # path = "/home/dany/test_books/"
     # path = "/home/dany/Downloads/fb2.Flibusta.Net"
     error_files = 0
@@ -139,12 +150,12 @@ def enter_point(path, update):
     for path in fb2_path_generator(path):
         # for wrong fb2 files
         try:
-            tree = get_tree_from_fb2(path)
+            title_info = get_title_info_from_fb2(path)
         except etree.XMLSyntaxError:
             error_files += 1
             continue
 
-        info = get_book_info(tree)
+        info = get_book_info(title_info)
 
         #  title is mandatory
         if not info["book_title"]:
