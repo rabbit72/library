@@ -19,6 +19,7 @@ def is_correct_ext(path: str) -> bool:
 
 
 def get_bytes_from_fb2(path: str) -> BytesIO:
+    bytes_fb2 = None
     if path.endswith(".fb2"):
         with open(path, "rb") as fb2:
             bytes_fb2 = BytesIO(fb2.read())
@@ -64,7 +65,7 @@ def get_book_title(tag_element, namespace: str) -> str:
     # Bad situation
     if len(book_title) != 1:
         sys.stderr.write("Book has 0 or more 1 title\n")
-        return
+        return ""
 
     try:
         title = book_title[0].text.strip()
@@ -107,7 +108,7 @@ def get_book_authors(tag_element, namespace: str) -> set:
     return authors
 
 
-def get_created_year(tag_element, namespace: str) -> int:
+def get_created_year(tag_element, namespace: str) -> (int, None):
     tag = "date"
     year = [year for year in tag_element.iter(f"{namespace}{tag}")]
 
