@@ -1,8 +1,7 @@
 version: '3.1'
 services:
   postgres:
-#    image: postgres:10
-    build: ./dockerfile/
+    build: dockerfile/.
     restart: always
     container_name: library
     ports:
@@ -10,9 +9,15 @@ services:
     environment:
       POSTGRES_PASSWORD: pass
       POSTGRES_USER: postgres
+    links:
+    - elasticsearch
+    depends_on:
+    - elasticsearch
+    command: ["wait-for-it.sh", "elasticsearch:9200", "--", "docker-entrypoint.sh", "postgres"]
 
   elasticsearch:
     image: elasticsearch
     container_name: search
     ports:
     - "9200:9200"
+    - "9300:9300"
