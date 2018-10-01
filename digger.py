@@ -41,7 +41,10 @@ def get_title_info_from_fb2(path):
     title_info_tag = "{http://www.gribuser.ru/xml/fictionbook/2.0}title-info"
     object_fb2 = get_object_for_parser(path)
     context = etree.iterparse(object_fb2, events=("end",), tag=title_info_tag)
-    _, title_info = next(iter(context))
+    try:
+        _, title_info = next(iter(context))
+    except StopIteration:
+        title_info = None
     return title_info
 
 
@@ -147,6 +150,9 @@ def enter_point(path, update):
         try:
             title_info = get_title_info_from_fb2(path)
         except etree.XMLSyntaxError:
+            error_files += 1
+            continue
+        if title_info is None:
             error_files += 1
             continue
 
