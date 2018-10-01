@@ -1,3 +1,5 @@
+CREATE EXTENSION zombodb;
+
 CREATE OR REPLACE FUNCTION update_last_update()
   RETURNS TRIGGER AS $$
   BEGIN
