@@ -1,7 +1,21 @@
+from configparser import ConfigParser
+
 import psycopg2
 from psycopg2 import sql
 
-CONN = psycopg2.connect(user="postgres", password="pass", host="localhost", port=5432)
+
+def get_config():
+    config = ConfigParser()
+    config.read("../config.ini")
+    if config.has_section("postgres"):
+        return dict(config["postgres"])
+    return {"user": "postgres", "password": "pass", "host": "localhost", "port": 5432}
+
+
+conf = get_config()
+CONN = psycopg2.connect(
+    user=conf["user"], password=conf["password"], host=conf["host"], port=conf["port"]
+)
 CURSOR = CONN.cursor()
 
 
@@ -52,7 +66,7 @@ def get_book(title: str, year: int, authors: set, only_id=False):
                 SELECT id, title, year, last_update FROM book
                 WHERE title = %s and year is %s
                 ORDER BY last_update DESC;"""
-    books = __fetch_reply(sql_request, (title, year,))
+    books = __fetch_reply(sql_request, (title, year))
     for book in books:
         book_id = book[0]
         if __get_book_author_names(book_id) == authors:
@@ -68,7 +82,7 @@ def __create_links_book_author(book_id, authors_id: dict):
             continue
         create_link = """
             INSERT INTO books_authors(book_id, author_id) VALUES (%s, %s)"""
-        __send_request(create_link, (book_id, author_id,))
+        __send_request(create_link, (book_id, author_id))
 
 
 def add_book(title: str, year: int = None, authors: set = frozenset(), update=False):
@@ -76,12 +90,11 @@ def add_book(title: str, year: int = None, authors: set = frozenset(), update=Fa
     if book:
         return
     create_new_book = "INSERT INTO book(title, year) VALUES (%s, %s);"
-    __send_request(create_new_book, (title, year,))
+    __send_request(create_new_book, (title, year))
     new_book_id = get_book(title, year, set(), only_id=True)
 
     __create_links_book_author(
-        new_book_id,
-        __get_authors_id(authors, add_new_authors=True)
+        new_book_id, __get_authors_id(authors, add_new_authors=True)
     )
 
 
@@ -129,6 +142,6 @@ def __get_authors_id(author_names: set, add_new_authors=False) -> dict:
     for name in author_names:
         author_id = get_author(name, only_id=True)
         if not author_id and add_new_authors:
-                author_id = add_author(name)
+            author_id = add_author(name)
         authors_id[name] = author_id
     return authors_id
