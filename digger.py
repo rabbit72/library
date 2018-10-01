@@ -137,12 +137,12 @@ def get_book_info(title_info) -> dict:
     default=False,
     help="This flag updates your existing books in database",
 )
-@click.argument("path", type=click.Path(exists=True))
-def enter_point(path, update):
+# @click.argument("path", type=click.Path(exists=True))
+def enter_point(update):
     books_before, authors_before = db.get_statistic()
     # path = "./books/"
     # path = "/home/dany/test_books/"
-    # path = "/home/dany/Downloads/fb2.Flibusta.Net"
+    path = "/home/dany/Downloads/fb2.Flibusta.Net"
     error_files = 0
 
     for path in fb2_path_generator(path):
@@ -164,6 +164,7 @@ def enter_point(path, update):
             info["authors"],
             update=update,
         )
+    db.create_index()
 
     books_after, authors_after = db.get_statistic()
     # print information after work

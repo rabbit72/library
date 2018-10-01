@@ -8,11 +8,6 @@ CREATE TABLE book (
   OIDS=FALSE
 );
 
-CREATE INDEX idx_book
-          ON book
-       USING zombodb ((book.*))
-        WITH (url='elasticsearch:9200/');
-
 CREATE TRIGGER last_update_modification_book
     BEFORE UPDATE ON book
     FOR EACH ROW

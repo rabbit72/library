@@ -111,6 +111,19 @@ def delete_all_data():
     return {"book": books_before, "author": authors_after}
 
 
+def create_index():
+    create_index_author = """
+    CREATE INDEX idx_author ON author
+    USING zombodb ((author.*))
+    WITH (url='elasticsearch:9200/');"""
+    create_index_book = """
+        CREATE INDEX idx_book ON book
+        USING zombodb ((book.*))
+        WITH (url='elasticsearch:9200/');"""
+    __send_request(create_index_author)
+    __send_request(create_index_book)
+
+
 def __get_authors_id(author_names: set, add_new_authors=False) -> dict:
     authors_id = dict()
     for name in author_names:

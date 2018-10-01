@@ -11,9 +11,6 @@ services:
       POSTGRES_USER: postgres
     links:
     - elasticsearch
-    depends_on:
-    - elasticsearch
-    command: ["wait-for-it.sh", "elasticsearch:9200", "--", "docker-entrypoint.sh", "postgres"]
 
   elasticsearch:
     image: elasticsearch

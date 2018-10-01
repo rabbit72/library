@@ -7,11 +7,6 @@ CREATE TABLE author (
   OIDS=FALSE
 );
 
-CREATE INDEX idx_author
-          ON author
-       USING zombodb ((author.*))
-        WITH (url='elasticsearch:9200/');
-
 CREATE TRIGGER last_update_modification_author
     BEFORE UPDATE ON author
     FOR EACH ROW

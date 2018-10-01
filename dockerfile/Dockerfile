@@ -11,9 +11,6 @@ RUN wget --quiet https://www.zombodb.com/releases/v10-1.0.0b4/zombodb_jessie_pg1
 
 RUN dpkg -i zombodb_jessie_pg10-10-1.0.0b4_amd64.deb
 
-# add wait
-COPY wait-for-it.sh /usr/local/bin/
-RUN chmod 777 /usr/local/bin/wait-for-it.sh
 
 # create tables
 ADD migrations/00-create_functions.sql /docker-entrypoint-initdb.d/
