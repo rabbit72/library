@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "4ec069304090dbb3444d7b3f46967b5e6f7e337868d69c22c4a1c5c9b0c1fdc9"
+            "sha256": "cc996d9bbc72dade3993657ad6f0d8faa0d202f6ecbdfc0f1a85182c6125ad6a"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -23,14 +23,6 @@
             ],
             "index": "pypi",
             "version": "==7.0"
-        },
-        "elasticsearch": {
-            "hashes": [
-                "sha256:7546cc08e3899716e12fe67d12d7cfe9a64647014d1134b014c3c392b63cad42",
-                "sha256:aada5cfdc4a543c47098eb3aca6663848ef5d04b4324935ced441debc11ec98b"
-            ],
-            "index": "pypi",
-            "version": "==6.3.1"
         },
         "lxml": {
             "hashes": [
@@ -103,14 +95,6 @@
             ],
             "index": "pypi",
             "version": "==2.7.5"
-        },
-        "urllib3": {
-            "hashes": [
-                "sha256:a68ac5e15e76e7e5dd2b8f94007233e01effe3e50e8daddf69acfd81cb686baf",
-                "sha256:b5725a0bd4ba422ab0e66e89e030c806576753ea3ee08554382c14e685d117b5"
-            ],
-            "markers": "python_version != '3.1.*' and python_version != '3.0.*' and python_version >= '2.6' and python_version < '4' and python_version != '3.3.*' and python_version != '3.2.*'",
-            "version": "==1.23"
         }
     },
     "develop": {}
