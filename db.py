@@ -124,13 +124,20 @@ def delete_all_data():
     return {"book": books_before, "author": authors_after}
 
 
+def drop_elastic_indexes():
+    index_drop_author = "DROP INDEX IF EXISTS idx_author;"
+    index_drop_book = "DROP INDEX IF EXISTS idx_book;"
+    __send_request(index_drop_author)
+    __send_request(index_drop_book)
+
+
 def create_index():
     create_index_author = """
-    CREATE INDEX idx_author ON author
+    CREATE INDEX IF NOT EXISTS idx_author ON author
     USING zombodb ((author.*))
     WITH (url='elasticsearch:9200/');"""
     create_index_book = """
-        CREATE INDEX idx_book ON book
+        CREATE INDEX IF NOT EXISTS idx_book ON book
         USING zombodb ((book.*))
         WITH (url='elasticsearch:9200/');"""
     __send_request(create_index_author)

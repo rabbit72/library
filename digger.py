@@ -142,6 +142,7 @@ def get_book_info(title_info) -> dict:
 )
 @click.argument("path", type=click.Path(exists=True))
 def enter_point(path, update):
+    db.drop_elastic_indexes()
     books_before, authors_before = db.get_statistic()
     error_files = 0
 
