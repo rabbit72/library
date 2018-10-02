@@ -41,7 +41,7 @@ def get_statistic():
     return all_books, all_authors
 
 
-def __get_book_author_names(_id: int) -> set:
+def get_book_author_names(_id: int) -> set:
     sql_request = """
         SELECT name FROM author
             INNER JOIN books_authors ON books_authors.author_id = author.id
@@ -69,7 +69,7 @@ def get_book(title: str, year: int, authors: set, only_id=False):
     books = __fetch_reply(sql_request, (title, year))
     for book in books:
         book_id = book[0]
-        if __get_book_author_names(book_id) == authors:
+        if get_book_author_names(book_id) == authors:
             if only_id:
                 return book_id
             return book
@@ -145,3 +145,41 @@ def __get_authors_id(author_names: set, add_new_authors=False) -> dict:
             author_id = add_author(name)
         authors_id[name] = author_id
     return authors_id
+
+
+def search_book_by_name(name: str) -> list:
+    pattern = f'name: "{name}"'
+    sql_authors = "SELECT id FROM author WHERE author ==> %s;"
+    authors = __fetch_reply(sql_authors, (pattern,))
+
+    sql_books = """
+        SELECT book.*
+        FROM book
+            INNER JOIN books_authors ON books_authors.book_id = book.id
+            INNER JOIN author ON author.id = books_authors.author_id
+        WHERE author.id = %s;"""
+
+    books = []
+    for author in authors:
+        author_id = author[0]
+        books_result = __fetch_reply(sql_books, (author_id,))
+        books.extend(books_result)
+    return books
+
+
+def search_book_by_title(title: str) -> list:
+    pattern = f'title: "{title}"'
+    sql_request = "SELECT * FROM book WHERE book ==> %s;"
+    books = __fetch_reply(sql_request, (pattern,))
+    return books
+
+
+def search_book_by_year(year) -> list:
+    if year is None:
+        sql_request = "SELECT * FROM book WHERE book.year is NULL;"
+        return __fetch_reply(sql_request)
+    elif isinstance(year, int):
+        sql_request = "SELECT * FROM book WHERE book.year = %s;"
+        return __fetch_reply(sql_request, (year,))
+    else:
+        return []
