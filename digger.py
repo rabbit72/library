@@ -161,12 +161,7 @@ def enter_point(path, update):
         #  title is mandatory
         if not info["book_title"]:
             continue
-        db.add_book(
-            info["book_title"],
-            info["year"],
-            info["authors"],
-            update=update,
-        )
+        db.add_book(info["book_title"], info["year"], info["authors"], update=update)
     db.create_index()
 
     books_after, authors_after = db.get_statistic()
